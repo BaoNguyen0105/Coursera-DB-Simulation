@@ -205,7 +205,13 @@ class CourseTable {
         }
     }
 
-    static async loadCourses(url = "http://localhost:3000/api/courses/search") {
+    static async loadCourses(url) {
+        // If no URL provided, add authenticate_teacher_ID so backend can return soft-deleted courses for this teacher
+        if (!url) {
+            const base = new URL('http://localhost:3000/api/courses/search');
+            if (typeof teacherId !== 'undefined' && teacherId) base.searchParams.set('authenticate_teacher_ID', teacherId);
+            url = base.toString();
+        }
         const container = this.container;
         if (!container) return;
 
@@ -294,6 +300,8 @@ class Filter {
         if (kw) {
             params.set('keyword', kw);
         }
+        // Include authenticate_teacher_ID so search can return soft-deleted courses for the teacher
+        if (typeof teacherId !== 'undefined' && teacherId) params.set('authenticate_teacher_ID', teacherId);
         const url = `http://localhost:3000/api/courses/search?${params.toString()}`;
         await CourseTable.loadCourses(url);
     }
@@ -327,11 +335,13 @@ class MainPage {
         const doSearch = async () => {
             const kw = searchInput?.value?.trim() ?? "";
             const params = Filter.getFilterParams();
-            
+
             if (kw) {
                 params.set('keyword', kw);
             }
-            
+            // Include authenticate_teacher_ID so search can return soft-deleted courses for the teacher
+            if (typeof teacherId !== 'undefined' && teacherId) params.set('authenticate_teacher_ID', teacherId);
+
             const url = `http://localhost:3000/api/courses/search?${params.toString()}`;
             await CourseTable.loadCourses(url);
         };

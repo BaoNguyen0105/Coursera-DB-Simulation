@@ -39,10 +39,14 @@ class Course{
             <p class="action-title">Action:</p>
             ${actionButtons}
         </div>
+        
+        <p class="description">${this.description}</p>
+        
         `;
 
         const otherInfo=document.getElementById('other-info');
-        otherInfo.innerHTML=`
+        // Build other info HTML and include disable/status fields only when discarded
+        let otherHtml = `
         <div>
             <p class="title">Id:</p>
             <p class="value">${this.id}</p>
@@ -52,7 +56,7 @@ class Course{
             <p class="value">${this.teacher_id}</p>
         </div>
         <div>
-            <p class="title">Price:</p> 
+            <p class="title">Price:</p>
             <p class="value">${this.price}</p>
         </div>
         <div>
@@ -71,34 +75,48 @@ class Course{
             <p class="title">Duration:</p>
             <p class="value">${this.duration}</p>
         </div>
-        <div>
-            <p class="title">Disable date:</p>
-            <p class="value" style="text-align: justify;">${this.disable_date || 'N/A'}</p>
-        </div>
-        <div>
-            <p class="title">Disable by:</p>
-            <p class="value">${this.disable_by || 'N/A'}</p>
-        </div>
-        <div>
-            <p class="title">Status:</p>
-            <p class="value">${this.status}</p>
-        </div>
+        `;
+
+        if (this.status === 'Discarded') {
+            otherHtml += `
+            <div>
+                <p class="title">Disable date:</p>
+                <p class="value" style="text-align: justify;">${this.disable_date || 'N/A'}</p>
+            </div>
+            <div>
+                <p class="title">Disable by:</p>
+                <p class="value">${this.disable_by || 'N/A'}</p>
+            </div>
+            <div>
+                <p class="title">Status:</p>
+                <p class="value">${this.status}</p>
+            </div>
+            `;
+        }
+
+        otherHtml += `
         <div>
             <p class="title">Revenue:</p>
             <p class="value">${this.revenue} USD</p>
         </div>
         `;
+
+        otherInfo.innerHTML = otherHtml;
     }
     
     static async get(id){
         try {
-            const response = await fetch(`http://localhost:3000/api/courses/${encodeURIComponent(id)}`);
+            // Include authenticate_teacher_ID so backend can apply teacher-level access checks
+            const courseUrl = new URL(`http://localhost:3000/api/courses/${encodeURIComponent(id)}`);
+            courseUrl.searchParams.set('authenticate_teacher_ID', teacherId);
+            const response = await fetch(courseUrl.toString());
             if (!response.ok) throw new Error(`Server responded ${response.status}`);
-            const data = await response.json();
-            const list = data.data;
-            
-            if (list && list.length > 0) {
-                const item = list[0];
+            const body = await response.json();
+            let item = body && body.data;
+            // API may return data as an object or as an array
+            if (Array.isArray(item)) item = item[0];
+
+            if (item) {
                 console.log(item);
                 this.id = item.ID;
                 this.title = item.Title;
@@ -114,6 +132,8 @@ class Course{
                 this.status = item.Course_Status;
                 this.teacher_name = item.Teacher_Name || '';
                 this.partner_name = '';
+            } else {
+                console.warn('Course.get: no course data found in response', body);
             }
 
             const revenueRes = await fetch(`http://localhost:3000/api/courses/${encodeURIComponent(id)}/revenue`);
